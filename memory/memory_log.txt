@@ -1,0 +1,41 @@
+[SUCCESS]
+Task   : nmap fast sacn for krgi.in domain -F 
+Command: #!/bin/bash
+echo "Updating system packages"
+apt update -y
+
+echo "Installing nmap"
+apt install nmap -y
+
+echo "Running nmap fast scan for krgi.in domain"
+nmap -F krgi.in
+Result : Updating system packages WARNING: apt does not have a stable CLI interface. Use with caution in scripts. Hit:1 https:[PATH]ubuntu noble InRelease Hit:2 http:[PATH]ubuntu noble InRelease Hit:3 http:[PATH]ubuntu noble-updates InRelease Hit:4 http:[PATH]ubuntu noble-security InRelease Hit:5 http:[PATH]
+--------------------------------------------------
+[SUCCESS]
+Task   : check apache2 running or not? and in which port ?
+Command: systemctl status apache2 | grep "Active:"
+netstat -ntlp | grep :80
+Result : Apache is currently running as it shows "active (running)" in the systemctl status apache2 command. Apache2 is listening on port 8080 and not port 80 which was used by netstat -ntlp | grep :80 to check, suggesting that perhaps there might be a misconfiguration or conflict.
+--------------------------------------------------
+[FAILED]
+Task   : find documents folder in system may be under /home/selva/
+Command: find /home/selva -name "documents"
+Result : As an AI, I'm unable to run the commands but based on what you provided, I can tell you that your shell command is trying to search for a directory named "documents" in [PATH]selva (which may be the home directory of a user with username selva). If it fails to find any results, here are possible cau
+--------------------------------------------------
+[FAILED]
+Task   : find Documents folder in this system may be in /home/selva/
+Command: ls /home/selva/Documents
+Result : There was an issue executing the given shell command to list files within the "Documents" folder of the user "selva". The error message could have been due to a number of reasons, including incorrect syntax or insufficient permissions. As per your query, it is also important to note that the path pr
+Parent : find documents folder in system may be under /home/selva/
+--------------------------------------------------
+[SUCCESS]
+Task   : find Documents folder in this system may be in /home/selva/
+Command: find /home/selva -type d -name Documents 2>/dev/null
+Result : The `find` command was used to search for a directory named "Documents" in the "[PATH]selva" directory. The command was successful, and it found the "Documents" folder at the path "[PATH]Documents". It should be noted that the standard error output (2>) has been redirected to [PATH]null to hide any 
+Parent : find Documents folder in this system may be in /home/selva/
+--------------------------------------------------
+[SUCCESS]
+Task   : create test.txt filed inside Documents folder 
+Command: touch /home/selva/Documents/test.txt
+Result : The command `touch [PATH]test.txt` was run successfully, creating a new file named 'test.txt' inside the Documents folder at the specified location ([PATH]Documents). The result of this operation means that a new file was created without any errors or warnings.
+--------------------------------------------------
