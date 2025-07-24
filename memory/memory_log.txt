@@ -470,3 +470,15 @@ Command: df -h
 Result : The command "df -h" provides information about the disk usage on a system. The output shows that the following partitions have been mounted: * / (root filesystem): 293GB with 45GB used, leaving 233GB available * /run (temporary file storage): 6.1GB with 2.2MB used, leaving 6.1GB available * [PATH]sh
 Parent : find disk space used?
 --------------------------------------------------
+[SUCCESS]
+Task   : check apache2 running or not?
+Command: systemctl status apache2 | grep -q "active (running)" && echo "Apache2 is running" || echo "Apache2 is not running"
+Result : This shell command checks if Apache2 is running on the system. It uses the `systemctl status` command to get the status of the Apache2 service, and then it uses the `grep` command to search for the string "active (running)" in the output. If the string is found, it means that Apache2 is running, and
+Parent :  check apache2 running?
+--------------------------------------------------
+[SUCCESS]
+Task   : current user 
+Command: whoami
+Result : The `whoami` command displays the username of the current user. In this case, the output is "root", which indicates that the current user is the root user (i.e., the superuser).
+Parent : current user 
+--------------------------------------------------

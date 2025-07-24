@@ -3790,3 +3790,21 @@ tmpfs           6.1G   84K  6.1G   1% /run/user/1000
 tmpfs           6.1G   80K  6.1G   1% /run/user/0
 Error:
 
+
+--- 2025-07-24 17:12:10.148513 ---
+Prompt: check apache2 running or not?
+Command: systemctl status apache2 | grep -q "active (running)" && echo "Apache2 is running" || echo "Apache2 is not running"
+Success: True
+Output:
+Apache2 is running
+Error:
+
+
+--- 2025-07-24 17:16:07.192887 ---
+Prompt: current user 
+Command: whoami
+Success: True
+Output:
+root
+Error:
+

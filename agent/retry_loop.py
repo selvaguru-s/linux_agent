@@ -1,5 +1,5 @@
-import os
 import re
+import streamlit as st
 from agent.command_executor import execute_shell_command
 from agent.llm_client import loop_mode
 from agent.result_verifier import verify_result_with_llm
@@ -7,34 +7,22 @@ from prompt_clean import clean_command_output
 
 
 def extract_command_from_llm_response(response: str) -> str:
-    """
-    Extract the first valid-looking shell command from an LLM response.
-    Ignores markdown formatting, comments, and empty lines.
-    """
-    # Remove markdown-style code blocks like ```bash or ```
     cleaned = re.sub(r"```(?:bash)?|```", "", response, flags=re.IGNORECASE).strip()
 
     for line in cleaned.splitlines():
         line = line.strip()
-        if not line:
-            continue  # skip empty lines
-        if line.startswith("#"):
-            continue  # skip comments
-        if " " in line or re.match(r"^[\w\-./]+$", line):  # shell-like pattern
+        if not line or line.startswith("#"):
+            continue
+        if " " in line or re.match(r"^[\w\-./]+$", line):
             return line
 
-    return ""  # No valid command found
+    return ""
 
 
-def loop(task: str, stdout: str, stderr: str, attempt: int = 1):
-    print(f"\n🔁 Retry Attempt {attempt} for task: {task}")
+def loop_streamlit(task: str, stdout: str, stderr: str, attempt: int = 1):
+    st.subheader(f"🔁 Retry Attempt {attempt}")
+    st.info("Retrying the task with help from the LLM...")
 
-    confirm = input("❓ Do you want to retry this task using the LLM? (y/n): ").strip().lower()
-    if confirm != 'y':
-        print("❎ Retry aborted by user.")
-        return
-
-    # 🧠 Step 1: Build prompt for retry
     retry_prompt = f"""
 You are a helpful assistant. The user initially requested this task:
 
@@ -53,32 +41,35 @@ This is now a RETRY stage. Please suggest a different or corrected shell command
 Respond ONLY with a shell command. No explanation, no formatting like ```bash.
 """
 
-
-
-    # 🗣️ Step 2: Ask LLM for a new command
+    st.write("🧠 Asking LLM for a new retry suggestion...")
     llm_response = loop_mode(retry_prompt).strip()
     suggested_command = extract_command_from_llm_response(llm_response)
-    print("Retry command",suggested_command)
 
     if not suggested_command:
-        print("⚠️ Could not extract a valid shell command from the LLM response.")
-        print("🔎 Full response was:\n", llm_response)
+        st.error("⚠️ Could not extract a valid shell command from the LLM response.")
+        st.text("🔎 Full LLM Response:\n" + llm_response)
         return
 
-    print(f"\n🤖 Suggested Command (Attempt {attempt}):\n{suggested_command}")
+    st.subheader("🤖 Suggested Retry Command")
+    st.code(suggested_command, language="bash")
 
-    # ✋ Optional user confirmation before executing
-    confirm_run = input("💬 Do you want to run this command? (y/n): ").strip().lower()
-    if confirm_run != 'y':
-        print("⚠️ Command not executed. Aborting retry.")
-        return
+    run_retry = st.button(f"✅ Run Retry Command (Attempt {attempt})")
+    if run_retry:
+        with st.spinner("💻 Executing the retry command..."):
+            result = execute_shell_command(suggested_command)
 
-    # 🖥️ Step 3: Execute the new command
-    result = execute_shell_command(suggested_command)
+        st.subheader("🧾 Retry Result")
+        st.json(result)
 
-    # ✅ Step 4: Verify again
-    if verify_result_with_llm(task, suggested_command, result["stdout"]):
-        print("\n✅ Retry Successful:\n" + result["stdout"])
-    else:
-        print("\n❌ Retry Failed:\n" + (result["stdout"] or result["stderr"]))
-        loop(task, result["stdout"], result["stderr"], attempt + 1)
+        verified = verify_result_with_llm(task, suggested_command, result["stdout"])
+        if verified:
+            st.success("✅ Retry Successful!")
+            st.code(result["stdout"], language="bash")
+        else:
+            st.warning("❌ Retry Failed.")
+            st.code(result["stdout"] or result["stderr"], language="bash")
+
+            # Recursive retry (optional)
+            retry_again = st.button(f"🔁 Retry Again (Attempt {attempt + 1})")
+            if retry_again:
+                loop_streamlit(task, result["stdout"], result["stderr"], attempt + 1)

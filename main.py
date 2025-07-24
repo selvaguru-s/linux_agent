@@ -1,4 +1,4 @@
-
+import streamlit as st
 from agent.context import collect_system_context
 from agent.prompt_engineer import build_prompt
 from agent.llm_client import get_command_from_llm
@@ -6,76 +6,133 @@ from agent.command_executor import execute_shell_command
 from agent.result_summarizer import summarize_result
 from agent.result_verifier import verify_result_with_llm
 from agent.logger import log
-from agent.retry_loop import loop
+from agent.retry_loop import loop_streamlit
 from prompt_clean import clean_command_output
 from agent.memory_manager import store_memory, retrieve_similar_tasks, is_continuation_semantic
 
+
 def main():
-    while True:
-        task = input("📝 Enter the task you want to perform: ")
-        if task.lower() in ('exit', 'quit'):
-            print("👋 Exiting. Goodbye!")
-            break
+    st.set_page_config(page_title="🧠 AI Shell Assistant", layout="centered")
+    st.title("🤖 AI Shell Assistant")
 
-        # Step 1: Collect context
-        context = collect_system_context()
+    # 🧹 Clear state if reset is flagged
+    if st.session_state.get("reset_flag"):
+        for key in [
+            "task", "context", "related_tasks", "memory_snippets",
+            "command", "prompt", "parent_id", "reset_flag"
+        ]:
+            st.session_state.pop(key, None)
 
-        # Step 1.5: Memory + threading check
-        related_tasks = retrieve_similar_tasks(task)
-        memory_snippets = "\n".join([
-            f"- Task: {m['task']}\n  Result: {m['result'][:200].strip().replace('\n', ' ')}"
-            for m in related_tasks
-        ])
+    # 📝 Input task
+    task = st.text_input("📝 Enter the task you want to perform:")
 
-        if memory_snippets:
-            print("\n📚 Recalling relevant past tasks:\n", memory_snippets)
+    # 🚀 Run Task button
+    if st.button("🚀 Run Task"):
+        try:
+            st.session_state["task"] = task
+            st.info("🔄 Collecting system context...")
+            st.session_state["context"] = collect_system_context()
 
-        # Check if this is a continuation of something
-        parent = is_continuation_semantic(task)
-        parent_id = parent["task"] if parent else None
-        if parent_id:
-            print(f"\n🔗 Continuing from previous task: {parent_id}")
-        # Step 2: Prompt building
-        prompt = build_prompt(task, context, memory_snippets)
-        command = get_command_from_llm(prompt)
+            st.info("📚 Retrieving similar tasks from memory...")
+            st.session_state["related_tasks"] = retrieve_similar_tasks(task)
+            st.session_state["memory_snippets"] = "\n".join([
+                f"- Task: {m['task']}\n  Result: {m['result'][:200].strip().replace('\n', ' ')}"
+                for m in st.session_state["related_tasks"]
+            ])
 
-        print("\n🤖 Suggested Shell Command:")
-        print(f"\n🔸 {command}\n")
+            if st.session_state["memory_snippets"]:
+                st.subheader("📚 Recalling Relevant Past Tasks")
+                st.text(st.session_state["memory_snippets"])
 
-        cleaned_command = clean_command_output(command)
-        print("cleaned output :", cleaned_command)
+            parent = is_continuation_semantic(task)
+            st.session_state["parent_id"] = parent["task"] if parent else None
+            if st.session_state["parent_id"]:
+                st.info(f"🔗 Continuing from previous task: {st.session_state['parent_id']}")
 
-        confirm = input("Do you want to execute this? (y/N): ").strip().lower()
-        if confirm != 'y':
-            print("❌ Aborted.")
-            continue
-
-        # Step 3: Execution
-        result = execute_shell_command(cleaned_command)
-
-        # Step 4: Verify result
-        verified = verify_result_with_llm(task, cleaned_command, result["stdout"])
-
-        if verified:
-            print("\nstdout_output\n" + result["stdout"])
-
-                    # Step 5: Summarize and store
-            summary = summarize_result(
-                task=task,
-                command=cleaned_command,
-                stdout=result["stdout"],
-                stderr=result["stderr"],
-                success=verified
+            st.info("✍️ Building prompt for LLM...")
+            st.session_state["prompt"] = build_prompt(
+                task,
+                st.session_state["context"],
+                st.session_state["memory_snippets"]
             )
-            print(("✅ Output:",summary))
 
-        else:
-            loop(task, result["stdout"], result["stderr"])
-            print("\n❌ Error:\n" + (result["stdout"] or result["stderr"]))
+            st.info("🤖 Getting command suggestion from LLM...")
+            command = get_command_from_llm(st.session_state["prompt"])
+            st.session_state["command"] = clean_command_output(command)
 
+        except Exception as e:
+            st.error("🚨 Fatal error in task processing.")
+            st.exception(e)
 
-        store_memory(task, cleaned_command, summary, success=verified, parent_task=parent_id)
-        log(task, cleaned_command, result, verified)
+    # 🧠 Show Suggested Shell Command
+    if "command" in st.session_state:
+        st.subheader("🧠 Suggested Shell Command")
+        st.code(st.session_state["command"], language="bash")
+
+        # ✅ Execute Command
+        if st.button("✅ Execute Command"):
+            st.write("🔧 Executing command...")
+
+            try:
+                result = execute_shell_command(st.session_state["command"])
+                st.write("🔧 Command executed. Raw result:")
+                st.json(result)
+
+                st.write("🔍 Verifying result with LLM...")
+                verified = verify_result_with_llm(
+                    st.session_state["task"],
+                    st.session_state["command"],
+                    result["stdout"]
+                )
+                st.write("✅ Verified:", verified)
+
+                if verified:
+                    st.success("✅ Command executed successfully!")
+                    st.code(result["stdout"], language="bash")
+
+                    summary = summarize_result(
+                        task=st.session_state["task"],
+                        command=st.session_state["command"],
+                        stdout=result["stdout"],
+                        stderr=result["stderr"],
+                        success=True
+                    )
+                    st.subheader("📋 Summary")
+                    st.text(summary)
+                else:
+                    st.error("❌ Command failed verification.")
+                    st.code(result["stdout"] or result["stderr"], language="bash")
+                    loop_streamlit(
+                        st.session_state["task"],
+                        result["stdout"],
+                        result["stderr"]
+                    )
+                    summary = "Execution failed."
+
+                store_memory(
+                    st.session_state["task"],
+                    st.session_state["command"],
+                    summary,
+                    success=verified,
+                    parent_task=st.session_state.get("parent_id")
+                )
+
+                log(
+                    st.session_state["task"],
+                    st.session_state["command"],
+                    result,
+                    verified
+                )
+
+            except Exception as e:
+                st.error("🚨 Error during command execution.")
+                st.exception(e)
+
+    # 🔄 Reset button (safely triggers rerun)
+    if st.button("🔄 Reset"):
+        st.session_state["reset_flag"] = True
+        st.rerun()
+
 
 if __name__ == "__main__":
     main()
