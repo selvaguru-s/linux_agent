@@ -1,4 +1,5 @@
 def build_prompt(task: str, context: dict, memory_snippets: str = "") -> str:
+    
     memory_section = f"""
 Relevant Past Tasks and Results:
 {memory_snippets}

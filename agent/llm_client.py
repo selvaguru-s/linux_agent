@@ -31,3 +31,13 @@ def output_sum(prompt: str) -> str:
     response = requests.post(CONFIG["OLLAMA_API_URL"], json=payload)
     response.raise_for_status()
     return response.json()["response"].strip()
+
+def loop_mode(prompt: str) -> str:
+    payload = {
+        "model": CONFIG["OLLAMA_MODEL"],
+        "prompt": prompt,
+        "stream": False
+    }
+    response = requests.post(CONFIG["OLLAMA_API_URL"], json=payload)
+    response.raise_for_status()
+    return response.json()["response"].strip()

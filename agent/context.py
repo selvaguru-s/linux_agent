@@ -7,7 +7,7 @@ def collect_system_context():
         "user": getpass.getuser(),
         "os": platform.system(),
         "os_version": platform.version(),
-        "env": dict(os.environ),
+        #"env": dict(os.environ),
     }
 
 # Collect the context

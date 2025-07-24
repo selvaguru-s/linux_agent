@@ -16,6 +16,11 @@ And got the following output:
 
 Based on the task and output, did the command successfully complete the user's task?
 
+
+⚠️ Double-check the output carefully. Was the user's full task (including ports or file configuration if mentioned) truly completed?
+
+
+
 Respond ONLY with a JSON object like one of the following:
 {{"success": true}} or {{"success": false}}
 Do not include any explanation or extra text.

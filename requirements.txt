@@ -2,3 +2,5 @@ requests
 python-dotenv
 faiss-cpu 
 sentence-transformers
+beautifulsoup4
+requests

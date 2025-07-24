@@ -1,3 +1,4 @@
+
 from agent.context import collect_system_context
 from agent.prompt_engineer import build_prompt
 from agent.llm_client import get_command_from_llm
@@ -5,6 +6,7 @@ from agent.command_executor import execute_shell_command
 from agent.result_summarizer import summarize_result
 from agent.result_verifier import verify_result_with_llm
 from agent.logger import log
+from agent.retry_loop import loop
 from prompt_clean import clean_command_output
 from agent.memory_manager import store_memory, retrieve_similar_tasks, is_continuation_semantic
 
@@ -31,7 +33,8 @@ def main():
         # Check if this is a continuation of something
         parent = is_continuation_semantic(task)
         parent_id = parent["task"] if parent else None
-
+        if parent_id:
+            print(f"\n🔗 Continuing from previous task: {parent_id}")
         # Step 2: Prompt building
         prompt = build_prompt(task, context, memory_snippets)
         command = get_command_from_llm(prompt)
@@ -54,18 +57,22 @@ def main():
         verified = verify_result_with_llm(task, cleaned_command, result["stdout"])
 
         if verified:
-            print("\n✅ Output:\n" + result["stdout"])
+            print("\nstdout_output\n" + result["stdout"])
+
+                    # Step 5: Summarize and store
+            summary = summarize_result(
+                task=task,
+                command=cleaned_command,
+                stdout=result["stdout"],
+                stderr=result["stderr"],
+                success=verified
+            )
+            print(("✅ Output:",summary))
+
         else:
+            loop(task, result["stdout"], result["stderr"])
             print("\n❌ Error:\n" + (result["stdout"] or result["stderr"]))
 
-        # Step 5: Summarize and store
-        summary = summarize_result(
-            task=task,
-            command=cleaned_command,
-            stdout=result["stdout"],
-            stderr=result["stderr"],
-            success=verified
-        )
 
         store_memory(task, cleaned_command, summary, success=verified, parent_task=parent_id)
         log(task, cleaned_command, result, verified)
